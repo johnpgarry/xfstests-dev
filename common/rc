@@ -289,6 +289,15 @@ _scratch_mount_options()
 					$SCRATCH_DEV $SCRATCH_MNT $*
 }
 
+_test_mount_options()
+{
+	_test_options mount
+
+	export TEST_MOUNT_OPTIONS="$TEST_OPTIONS $TEST_FS_MOUNT_OPTS \
+				$SELINUX_MOUNT_OPTIONS $* $TEST_DEV $TEST_DIR"
+	echo $TEST_MOUNT_OPTIONS
+}
+
 _supports_filetype()
 {
 	local dir=$1
@@ -511,7 +520,7 @@ _test_mount()
     fi
 
     _test_options mount
-    _mount -t $FSTYP$FUSE_SUBTYP $TEST_OPTIONS $TEST_FS_MOUNT_OPTS $SELINUX_MOUNT_OPTIONS $* $TEST_DEV $TEST_DIR
+    _mount -t $FSTYP$FUSE_SUBTYP `_test_mount_options $*`
     mount_ret=$?
     [ $mount_ret -ne 0 ] && return $mount_ret
     _idmapped_mount $TEST_DEV $TEST_DIR
@@ -623,6 +632,14 @@ _metadump_dev() {
 		return 1
 		;;
 	esac
+}
+
+_test_mkfs_options()
+{
+	_test_options mkfs
+
+	export TEST_MKFS_OPTIONS="$TEST_OPTIONS $MKFS_OPTIONS $* $TEST_DEV"
+	echo $TEST_MKFS_OPTIONS
 }
 
 _test_mkfs()

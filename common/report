@@ -5,6 +5,7 @@
 # List of xfstests's enviroment variables to include reports
 ## TODO automate list population inside common/conf
 REPORT_ENV_LIST=("SECTION" "FSTYP" "PLATFORM" "MKFS_OPTIONS" "MOUNT_OPTIONS" \
+		 "TEST_MKFS_OPTIONS" "TEST_MOUNT_OPTIONS" \
 		 "HOST_OPTIONS" "CHECK_OPTIONS" "XFS_MKFS_OPTIONS" \
 		 "TIME_FACTOR" "LOAD_FACTOR" "TEST_DIR" "TEST_DEV" \
 		 "SCRATCH_DEV" "SCRATCH_MNT" "OVL_UPPER" "OVL_LOWER" "OVL_WORK")

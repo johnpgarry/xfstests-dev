@@ -819,6 +819,8 @@ function run_section()
 	# print out our test configuration
 	echo "FSTYP         -- `_full_fstyp_details`"
 	echo "PLATFORM      -- `_full_platform_details`"
+	echo "TEST_MKFS_OPTIONS  -- `_test_mkfs_options`"
+	echo "TEST_MOUNT_OPTIONS -- `_test_mount_options`"
 	if [ ! -z "$SCRATCH_DEV" ]; then
 	  echo "MKFS_OPTIONS  -- `_scratch_mkfs_options`"
 	  echo "MOUNT_OPTIONS -- `_scratch_mount_options`"
