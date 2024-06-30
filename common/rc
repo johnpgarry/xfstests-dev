@@ -285,8 +285,8 @@ _scratch_mount_options()
 {
 	_scratch_options mount
 
-	echo `_common_dev_mount_options $*` $SCRATCH_OPTIONS \
-					$SCRATCH_DEV $SCRATCH_MNT
+	echo `_common_mount_opts` $SCRATCH_OPTIONS \
+					$SCRATCH_DEV $SCRATCH_MNT $*
 }
 
 _supports_filetype()
