@@ -658,6 +658,9 @@ _test_mkfs()
     pvfs2)
 	# do nothing for pvfs2
 	;;
+	tmpfs)
+	# do nothing for tmpfs
+	;;
     udf)
         $MKFS_UDF_PROG $MKFS_OPTIONS $* $TEST_DEV > /dev/null
 	;;
