@@ -802,7 +802,7 @@ get_next_config() {
 	fi
 
 	parse_config_section $1
-	if [ ! -z "$OLD_FSTYP" ] && [ $OLD_FSTYP != $FSTYP ]; then
+	if $RECREATE_TEST_DEV || ([ ! -z "$OLD_FSTYP" ] && [ $OLD_FSTYP != $FSTYP ]); then
 		[ -z "$MOUNT_OPTIONS" ] && _mount_opts
 		[ -z "$TEST_FS_MOUNT_OPTS" ] && _test_mount_opts
 		[ -z "$MKFS_OPTIONS" ] && _mkfs_opts
