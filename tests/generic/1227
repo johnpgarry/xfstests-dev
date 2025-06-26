@@ -1,0 +1,92 @@
+#! /bin/bash
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (c) 2025 IBM Corporation. All Rights Reserved.
+#
+# FS QA Test 1227
+#
+# Validate FS atomic write using fio crc check verifier on mixed mappings
+# of a file.
+#
+. ./common/preamble
+. ./common/atomicwrites
+
+_begin_fstest auto aio rw atomicwrites
+
+_require_scratch_write_atomic_multi_fsblock
+_require_odirect
+_require_aio
+
+_scratch_mkfs >> $seqres.full 2>&1
+_scratch_mount
+
+touch "$SCRATCH_MNT/f1"
+awu_min_write=$(_get_atomic_write_unit_min "$SCRATCH_MNT/f1")
+awu_max_write=$(_get_atomic_write_unit_max "$SCRATCH_MNT/f1")
+aw_bsize=$(_max "$awu_min_write" "$((awu_max_write/4))")
+
+fsbsize=$(_get_block_size $SCRATCH_MNT)
+
+fio_config=$tmp.fio
+fio_out=$tmp.fio.out
+
+FIO_LOAD=$(($(nproc) * 2 * LOAD_FACTOR))
+SIZE=$((128 * 1024 * 1024))
+
+cat >$fio_config <<EOF
+[global]
+ioengine=libaio
+fallocate=none
+filename=$SCRATCH_MNT/test-file
+filesize=$SIZE
+bs=$fsbsize
+direct=1
+verify=0
+group_reporting=1
+
+# Create written extents
+[written_blocks]
+stonewall
+ioengine=libaio
+rw=randwrite
+io_size=$((SIZE/3))
+random_generator=lfsr
+
+# Create unwritten extents
+[unwritten_blocks]
+stonewall
+ioengine=falloc
+rw=randwrite
+io_size=$((SIZE/3))
+random_generator=lfsr
+
+# atomic write to mixed mappings of written/unwritten/holes
+[atomic_write_aio_dio_job]
+stonewall
+direct=1
+ioengine=libaio
+rw=randwrite
+bs=$aw_bsize
+iodepth=$FIO_LOAD
+numjobs=$FIO_LOAD
+size=$SIZE
+random_generator=lfsr
+verify_state_save=0
+verify=crc32c
+verify_fatal=1
+verify_dump=0
+verify_backlog=1024
+verify_async=4
+verify_write_sequence=0
+atomic=1
+EOF
+
+_require_fio $fio_config
+
+cat $fio_config >> $seqres.full
+$FIO_PROG $fio_config --output=$fio_out
+cat $fio_out >> $seqres.full
+
+# success, all done
+echo Silence is golden
+status=0
+exit
