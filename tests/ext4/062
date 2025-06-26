@@ -1,0 +1,121 @@
+#! /bin/bash
+# SPDX-License-Identifier: GPL-2.0
+# Copyright (c) 2025 IBM Corporation. All Rights Reserved.
+#
+# FS QA Test 061
+#
+# Brute force all possible blocksize clustersize combination on a bigalloc
+# filesystem for stressing atomic write using fio data crc verifier. We run
+# nproc * $LOAD_FACTOR threads in parallel writing to a single
+# $SCRATCH_MNT/test-file. We also create 8 such parallel jobs to run on
+# a constrained filesystem size to stress the ext4 allocator to allocate
+# contiguous extents.
+#
+
+. ./common/preamble
+. ./common/atomicwrites
+
+_begin_fstest auto rw stress atomicwrites
+
+_require_scratch_write_atomic
+_require_aiodio
+
+FSSIZE=$((360*1024*1024))
+FIO_LOAD=$(($(nproc) * LOAD_FACTOR))
+fiobsize=4096
+
+# Calculate fsblocksize as per bdev atomic write units.
+bdev_awu_min=$(_get_atomic_write_unit_min $SCRATCH_DEV)
+bdev_awu_max=$(_get_atomic_write_unit_max $SCRATCH_DEV)
+fsblocksize=$(_max 4096 "$bdev_awu_min")
+
+function create_fio_config()
+{
+cat >$fio_config <<EOF
+	[global]
+	direct=1
+	ioengine=libaio
+	rw=randwrite
+	bs=$fiobsize
+	fallocate=truncate
+	size=$((FSSIZE / 12))
+	iodepth=$FIO_LOAD
+	numjobs=$FIO_LOAD
+	group_reporting=1
+	verify_state_save=0
+	verify=crc32c
+	verify_fatal=1
+	verify_dump=0
+	verify_backlog=1024
+	verify_async=4
+	verify_write_sequence=0
+	atomic=1
+
+	[job1]
+	filename=$SCRATCH_MNT/testfile-job1
+
+	[job2]
+	filename=$SCRATCH_MNT/testfile-job2
+
+	[job3]
+	filename=$SCRATCH_MNT/testfile-job3
+
+	[job4]
+	filename=$SCRATCH_MNT/testfile-job4
+
+	[job5]
+	filename=$SCRATCH_MNT/testfile-job5
+
+	[job6]
+	filename=$SCRATCH_MNT/testfile-job6
+
+	[job7]
+	filename=$SCRATCH_MNT/testfile-job7
+
+	[job8]
+	filename=$SCRATCH_MNT/testfile-job8
+
+EOF
+}
+
+# Let's create a sample fio config to check whether fio supports all options.
+fio_config=$tmp.fio
+fio_out=$tmp.fio.out
+
+create_fio_config
+_require_fio $fio_config
+
+for ((fsblocksize=$fsblocksize; fsblocksize <= $(_get_page_size); fsblocksize = $fsblocksize << 1)); do
+	# cluster sizes above 16 x blocksize are experimental so avoid them
+	# Also, cap cluster size at 128kb to keep it reasonable for large
+	# blocks size cases.
+	fs_max_clustersize=$(_min $((16 * fsblocksize)) "$bdev_awu_max" $((128 * 1024)))
+
+	for ((fsclustersize=$fsblocksize; fsclustersize <= $fs_max_clustersize; fsclustersize = $fsclustersize << 1)); do
+		for ((fiobsize = $fsblocksize; fiobsize <= $fsclustersize; fiobsize = $fiobsize << 1)); do
+			MKFS_OPTIONS="-O bigalloc -b $fsblocksize -C $fsclustersize"
+			_scratch_mkfs_sized "$FSSIZE" >> $seqres.full 2>&1 || continue
+			if _try_scratch_mount >> $seqres.full 2>&1; then
+				echo "== FIO test for fsblocksize=$fsblocksize fsclustersize=$fsclustersize fiobsize=$fiobsize ==" >> $seqres.full
+
+				touch $SCRATCH_MNT/f1
+				create_fio_config
+
+				cat $fio_config >> $seqres.full
+
+				$FIO_PROG $fio_config --output=$fio_out
+				ret=$?
+				cat $fio_out >> $seqres.full
+
+				_scratch_unmount
+
+				[[ $ret -eq 0 ]] || _fail "fio with atomic write failed"
+			fi
+		done
+	done
+done
+
+# success, all done
+echo Silence is golden
+status=0
+exit
